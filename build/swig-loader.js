@@ -1,0 +1,93 @@
+'use strict';
+
+var queryString = require('query-string'),
+    Swig = new require('swig').Swig,
+    loaderUtils = require('loader-utils'),
+    defaultOpts = {},
+    noop = function () { },
+    noopr = function (r) { return r; },
+    queryCustomizer = noop,
+    resourceQueryCustomizer = noop,
+    resultCustomizer = noopr;
+
+module.exports = function (content) {
+    var plugin = assign(
+        {},
+        this
+    );
+    plugin.cacheable && plugin.cacheable();
+    // plugin.query = parseQuery(plugin.query);
+    plugin.query = loaderUtils.getOptions(this);
+    plugin.resourceQuery = parseQuery(plugin.resourceQuery);
+    content = resolve(content, plugin);
+    return prepareResult(content, plugin.query);
+};
+
+module.exports.options = function (opts) {
+    if (!opts) return;
+    if (typeof opts !== 'object') return;
+    if (Array.isArray(opts)) return;
+    defaultOpts = opts;
+};
+
+module.exports.queryCustomizer = function (customizer) {
+    queryCustomizer = customizer || noop;
+};
+
+module.exports.resourceQueryCustomizer = function (customizer) {
+    resourceQueryCustomizer = customizer || noop;
+};
+
+module.exports.resultCustomizer = function (customizer) {
+    resultCustomizer = customizer || noopr;
+};
+
+function prepareResult(content, opts) {
+    if (opts.raw) return content;
+    if (typeof content === 'string' && content.indexOf('module.exports') === 0) return content;
+    return 'module.exports = ' + JSON.stringify(content) + ';';
+}
+
+function resolve(content, plugin) {
+    var templateOpts, swig, result;
+    try {
+        resourceQueryCustomizer(plugin.resourceQuery, plugin.resourcePath);
+        queryCustomizer(plugin.query, plugin.resourcePath);
+        templateOpts = assign({}, defaultOpts, plugin.query);
+        swig = new Swig(templateOpts);
+        registerTemplateDependencies(swig, plugin);
+        result = swig.render(content, {
+            // locals: plugin.resourceQuery,
+            locals: plugin.query,
+            filename: plugin.resourcePath
+        });
+        result = resultCustomizer(result, plugin.resourcePath, templateOpts, plugin.resourceQuery);
+    } catch (e) {
+        plugin.emitError('Could not resolve swig template. Cause: ' + e);
+        return '';
+    }
+    return result;
+}
+
+function parseQuery(query) {
+    return JSON.parse(JSON.stringify(queryString.parse(query, { arrayFormat: 'bracket' })));
+}
+
+function registerTemplateDependencies(swig, plugin) {
+    var loader = swig.options.loader,
+        _load = loader.load;
+    loader.load = function (filepath) {
+        plugin.addDependency(filepath);
+        return _load.apply(loader, arguments);
+    };
+}
+
+function assign(result) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    args.forEach(function (a) {
+        Object.keys(a || {}).forEach(function (key) {
+            result[key] = a[key];
+        });
+    });
+    return result;
+}

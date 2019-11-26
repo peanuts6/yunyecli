@@ -1,0 +1,35 @@
+
+# dependency
+node_modules
+dist
+_dist
+temp
+
+# cache
+npm-debug.log.*
+npm-debug.log
+.sass-cache
+*.css.map
+.manifest
+.history
+.npmrc
+.*.swp
+
+# ide file 
+.editorconfig
+.vscode
+.idea
+.sublime-project
+*.sublime-project
+*.sublime-workspace
+.gradle
+
+# system file
+.DS_Store
+.Thumbs.db
+.ehthumbs.db
+.Trashes
+
+# git
+.git
+.svn
